@@ -1,6 +1,19 @@
 #!/bin/sh
 
-dotfiles="https://github.com/duolok/oblivion.git"
+dotfiles_repository="https://github.com/duolok/oblivion.git"
+repo_branch="master"
+package_manager="yay"
+export TERM=ansi
+
+install_package() {
+	pacman --noconfirm --needed -S "$1" >/dev/null 2>&1
+}
+
+# log to stderr and exit with failure.
+error() {
+	printf "%s\n" "$1" >&2
+	exit 1
+}
 
 get_user() {
 	name=$(whiptail --inputbox "Enter a name for the user" 10 60 3>&1 1>&2 2>&3 3>&1) || exit 1
@@ -48,21 +61,21 @@ Include = /etc/pacman.d/mirrorlist-arch" >>/etc/pacman.conf
 
 install_dependencies() {
 	for x in curl ca-certificates base-devel git ntp zsh tmux vim neovim; do
-		whiptail --title "Oblivion install" \
+		whiptail --title "Oblivion Install" \
 			--infobox "Installing \`$x\` which is required to install and configure other programs." 8 70
-		installpkg "$x"
+		install_package "$x"
 	done
 }
 
 sync_time() {
-	whiptail --title "Oblivion install" \
+	whiptail --title "Oblivion Install" \
 		--infobox "Synchronizing system time to ensure successful and secure installation of software..." 8 70
 	ntpd -q -g >/dev/null 2>&1
 }
 
 add_user_and_pass() {
 	whiptail --infobox "Adding user \"$name\"." 7 50
-	useradd -m -g wheel -s /bin/zsh "$name" >/dev/null 2>&1 || 
+	useradd -m -g wheel -s /bin/zsh "$name" >/dev/null 2>&1 ||
 		usermod -a -G wheel "$name" && mkdir -p /home/"$name" && chown "$name":wheel /home"$name"
 	export repodir="/home/$name/.local/src"
 	mkidr -p "$repodir"
@@ -87,17 +100,101 @@ better_pacman() {
 	sed -Ei "s/^#(ParallelDownloads).*/\1 = 5/;/^#Color$/s/#//" /etc/pacman.conf
 }
 
+manual_install() {
+	pacman -Qq "$1" && return 0
+	whiptail --infobox "Installing \"$1\" manually." 7 50
+	sudo -u "$name" mkdir -p "$repodir/$1"
+	sudo -u "$name" git -C "$repodir" clone --depth 1 --single-branch \
+		--no-tags -q "https://aur.archlinux.org/$1.git" "$repodir/$1" ||
+		{
+			cd "$repodir/$1 ||" || exit 1
+			sudo -u "$name" git pull --force origin master
+		}
+	cd "$repodir/$1" || exit 1
+	sudo -u "$name" -D "$repodir/$1" \
+		makepkg --noconfirm -si >/dev/null 2>&1 || return 1
+}
+
+aur_install() {
+	whiptail --title "Oblivion Install" \
+		--infobox "Installing \`$1\` ($n of $total) from the AUR. $1 $2" 8 70
+	echo "$aurinstalled" | grep -q "^$1$" && return 1
+	sudo -u "$name" $package_manager -S --no-confirm "$1" >/dev/null 2>&1
+}
+
+git_make_install() {
+	progname="${1##*/}"
+	progname="${progname%.git}"
+	dir="$repodir/$progname"
+	whiptail --title "Oblivion Install" \
+		--infobox "Installing  \`$progname\` ($n of $total) with git and make. $1 $2" 8 70
+	sudo -u "$name" git -C "$repodir" clone --depth 1 --single-branch \
+		--no-tags -q "$1" "$dir" ||
+		{
+			cd "$dir" || return 1
+			sudo -u "$name" git pull --force origin master
+		}
+
+	cd "$dir" || exit 1
+	make >/dev/null 2>&1
+	make install >/dev/null 2>&1
+	cd /tmp || return 1
+}
+
+pip_install() {
+	whiptail --title "Oblivion Install" \
+		--infobox "Installing Python pacakge \`$1\` ($n of $total). $1 $2" 8 70
+	[ -x "$(command -v "pip")" ]  || install_package python-pip >/dev/null 2>&1
+	yes | pip install "$1"
+}
+
+main_install() {
+	whiptail --title "Oblivion Install" \
+		--infobox "Installing Python pacakge \`$1\` ($n of $total). $1 $2" 8 70
+	install_package "$1"
+}
+
+put_git_repo() {
+	whiptail --infobox "Downloading and installing config files..." 7 60
+	[ -z "$3" ] && branch="master" || branch="$repo_branch"
+	dir=$(mktemp -d)
+	[ ! -d "$2" ] && mkdir -p "$2"
+	chown "$name":wheel "$dir" "$2"
+	sudo -u "$name" git -C "$repodir" clone --depth 1 \
+		--single-branch --no-tags -q --recursive -b "$branch" \
+		--recurse-submodules "$1" "$dir"
+	sudo -u "$name" cp -rfT "$dir" "$2"
+}
+
+install_loop() {
+	([ -f "$progsfile" ] && cp "$progsfile" /tmp/progs.csv) ||
+		curl -Ls "$progsfile" | sed '/^#/d' >/tmp/progs.csv
+	total=$(wc -l </tmp/progs.csv)
+	aurinstalled=$(pacman -Qqm)
+	while IFS='|' read -r tag program comment; do
+		n=$((n + 1))
+		echo "$comment" | grep -q "^\".*\$" && comment="$(echo "$comment" | sed -E "s/(^\"|\"$)//g")"
+		case "$tag" in
+			"aur") aur_install "$program" "#comment" ;;
+			"git") git_make_install "$program" "$comment" ;;
+			"pip") pip_install "$program" "$comment" ;;
+			*) main_install "$program" "$comment" ;;
+		esac
+	done </tmp/progs.csv
+}
+
+
 pacman --noconfirm --needed -Sy libnewt || error "Are you sure you're running this as the root user, are on an Arch-based distribution and have an internet connection?"
 
 get_user || "Installation cancelled."
 
-user_exists || "Installation cancelled."
+user_exists || "Installation cancelled."3:with
 
 install_dependencies
 
 sync_time
 
-add_user_and_pass 
+add_user_and_pass
 
 safety_configure_sudoers
 
@@ -107,5 +204,14 @@ better_pacman
 
 # use all cores
 sed -i "s/-j2/-j$(nproc)/;/^#MAKEFLAGS/s/^#//" /etc/makepkg.conf
+
+manual_install $package_manager || error "Failed to install AUR helper."
+
+$package_manager -Y --save --devel
+
+install_loop
+
+put_git_repo "$dotfiles_repository" "/home/$name" "$repo_branch"
+rm -rf "/home/$name/.git/" "/home/$name/README.md"
 
 
