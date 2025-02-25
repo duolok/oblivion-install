@@ -38,7 +38,7 @@ user_exists() {
 	! { id -u "$name" >/dev/null 2>&1; } ||
 		whiptail --title "WARNING" --yes-button "CONTINUE" \
 			--no-button "No wait..." \
-			--yesno "The user \`$name\` already exists on this system. LARBS can install for a user already existing, but it will OVERWRITE any conflicting settings/dotfiles on the user account.\\n\\nLARBS will NOT overwrite your user files, documents, videos, etc., so don't worry about that, but only click <CONTINUE> if you don't mind your settings being overwritten.\\n\\nNote also that LARBS will change $name's password to the one you just gave." 14 70
+			--yesno "The user \`$name\` already exists on this system. Oblivion can install for a user already existing, but it will OVERWRITE any conflicting settings/dotfiles on the user account.\\n\\It will NOT overwrite your user files, documents, videos, etc., so don't worry about that, but only click <CONTINUE> if you don't mind your settings being overwritten.\\n\\nNote also that the script will change $name's password to the one you just gave." 14 70
 }
 
 refresh_keys() {
@@ -271,9 +271,9 @@ echo "export \$(dbus-launch)" >/etc/profile.d/dbus.sh
 enable_tap_to_click || "Tap to click modification failed."
 
 # Allow wheel users to sudo with password and allow several system commands without passwd
-echo "%wheel ALL=(ALL:ALL) ALL" >/etc/sudoers.d/00-larbs-wheel-can-sudo
-echo "%wheel ALL=(ALL:ALL) NOPASSWD: /usr/bin/shutdown,/usr/bin/reboot,/usr/bin/systemctl suspend,/usr/bin/wifi-menu,/usr/bin/mount,/usr/bin/umount,/usr/bin/pacman -Syu,/usr/bin/pacman -Syyu,/usr/bin/pacman -Syyu --noconfirm,/usr/bin/loadkeys,/usr/bin/pacman -Syyuw --noconfirm,/usr/bin/pacman -S -y --config /etc/pacman.conf --,/usr/bin/pacman -S -y -u --config /etc/pacman.conf --" >/etc/sudoers.d/01-larbs-cmds-without-password
-echo "Defaults editor=/usr/bin/nvim" >/etc/sudoers.d/02-larbs-visudo-editor
+echo "%wheel ALL=(ALL:ALL) ALL" >/etc/sudoers.d/00-oblivion-wheel-can-sudo
+echo "%wheel ALL=(ALL:ALL) NOPASSWD: /usr/bin/shutdown,/usr/bin/reboot,/usr/bin/systemctl suspend,/usr/bin/wifi-menu,/usr/bin/mount,/usr/bin/umount,/usr/bin/pacman -Syu,/usr/bin/pacman -Syyu,/usr/bin/pacman -Syyu --noconfirm,/usr/bin/loadkeys,/usr/bin/pacman -Syyuw --noconfirm,/usr/bin/pacman -S -y --config /etc/pacman.conf --,/usr/bin/pacman -S -y -u --config /etc/pacman.conf --" >/etc/sudoers.d/01-oblivion-cmds-without-password
+echo "Defaults editor=/usr/bin/nvim" >/etc/sudoers.d/02-oblivion-visudo-editor
 mkdir -p /etc/sysctl.d
 echo "kernel.dmesg_restrict = 0" >/etc/sysctl.d/dmesg.conf
 
