@@ -145,7 +145,7 @@ git_make_install() {
 pip_install() {
 	whiptail --title "Oblivion Install" \
 		--infobox "Installing Python pacakge \`$1\` ($n of $total). $1 $2" 8 70
-	[ -x "$(command -v "pip")" ]  || install_package python-pip >/dev/null 2>&1
+	[ -x "$(command -v "pip")" ] || install_package python-pip >/dev/null 2>&1
 	yes | pip install "$1"
 }
 
@@ -176,10 +176,10 @@ install_loop() {
 		n=$((n + 1))
 		echo "$comment" | grep -q "^\".*\$" && comment="$(echo "$comment" | sed -E "s/(^\"|\"$)//g")"
 		case "$tag" in
-			"aur") aur_install "$program" "#comment" ;;
-			"git") git_make_install "$program" "$comment" ;;
-			"pip") pip_install "$program" "$comment" ;;
-			*) main_install "$program" "$comment" ;;
+		"aur") aur_install "$program" "#comment" ;;
+		"git") git_make_install "$program" "$comment" ;;
+		"pip") pip_install "$program" "$comment" ;;
+		*) main_install "$program" "$comment" ;;
 		esac
 	done </tmp/progs.csv
 }
@@ -203,9 +203,29 @@ galaxy_install() {
 	rm -rf local_dir
 }
 
+main_zsh() {
+	chsh -s /bin/zsh "$name" >/dev/null 2>&1
+	sudo -u "$name" mkdir -p "/home/$name/.cache/zsh/"
+}
+
+enable_tap_to_click() {
+	[ ! -f /etc/X11/xorg.conf.d/40-libinput.conf ] && printf 'Section "InputClass"
+        Identifier "libinput touchpad catchall"
+        MatchIsTouchpad "on"
+        MatchDevicePath "/dev/input/event*"
+        Driver "libinput"
+	# Enable left mouse button by tapping
+	Option "Tapping" "on"
+EndSection' >/etc/X11/xorg.conf.d/40-libinput.conf
+
+}
+
+finalize() {
+	whiptail --title "All done!" \
+		--msgbox "Congrats! Provided there were no hidden errors, the script completed successfully and all the programs and configuration files should be in place.\\n\\nTo run the new graphical environment, log out and log back in as your new user, then run the command \"startx\" to start the graphical environment (it will start automatically in tty1).\\n\\n.t Luke" 13 80
+}
 
 pacman --noconfirm --needed -Sy libnewt || error "Are you sure you're running this as the root user, are on an Arch-based distribution and have an internet connection?"
-
 get_user || "Installation cancelled."
 
 user_exists || "Installation cancelled."3:with
@@ -235,3 +255,16 @@ put_git_repo "$dotfiles_repository" "/home/$name" "$repo_branch"
 rm -rf "/home/$name/.git/" "/home/$name/README.md"
 
 galaxy_install || "Galaxy nvim installation didn't work."
+
+rmmod pcspkr
+echo "blacklist pcspkr" >/etc/modprobe.d/nobeep.conf
+
+main_zsh
+
+# dbus UUID must be generated for artix runit
+dbus-uuidgen >/var/lib/dbus/machine-id
+
+# use system notifications for Brave on Artix
+echo "export \$(dbus-launch)" >/etc/profile.d/dbus.sh
+
+enable_tap_to_click || "Tap to click failed."
