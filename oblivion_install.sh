@@ -2,6 +2,7 @@
 
 dotfiles_repository="https://github.com/duolok/oblivion.git"
 galaxy_nvim_repository="https://github.com/duolok/galaxy-nvim.git"
+progsfile="https://raw.githubusercontent.com/duolok/oblivion-install/refs/heads/master/programs.csv"
 repo_branch="master"
 package_manager="yay"
 export TERM=ansi
@@ -168,9 +169,9 @@ put_git_repo() {
 }
 
 install_loop() {
-	([ -f "$progsfile" ] && cp "$progsfile" /tmp/progs.csv) ||
-		curl -Ls "$progsfile" | sed '/^#/d' >/tmp/progs.csv
-	total=$(wc -l </tmp/progs.csv)
+	([ -f "$progsfile" ] && cp "$progsfile" /tmp/programs.csv) ||
+		curl -Ls "$progsfile" | sed '/^#/d' >/tmp/programs.csv
+	total=$(wc -l </tmp/programs.csv)
 	aurinstalled=$(pacman -Qqm)
 	while IFS='|' read -r tag program comment; do
 		n=$((n + 1))
@@ -181,7 +182,7 @@ install_loop() {
 		"pip") pip_install "$program" "$comment" ;;
 		*) main_install "$program" "$comment" ;;
 		esac
-	done </tmp/progs.csv
+	done </tmp/programs.csv
 }
 
 galaxy_install() {
