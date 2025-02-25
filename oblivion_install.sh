@@ -1,6 +1,7 @@
 #!/bin/sh
 
 dotfiles_repository="https://github.com/duolok/oblivion.git"
+galaxy_nvim_repository="https://github.com/duolok/galaxy-nvim.git"
 repo_branch="master"
 package_manager="yay"
 export TERM=ansi
@@ -183,6 +184,25 @@ install_loop() {
 	done </tmp/progs.csv
 }
 
+galaxy_install() {
+	local_dir="$HOME/nvim"
+	mkdir -p "$(dirname "$local_dir")"
+
+	if [ ! -d "$install_dir/.git" ]; then
+		git clone --depth 1 --single-branch --no-tags "$galaxy_nvim_repository" "$install_dir" ||
+			{
+				echo "Failed to clone Galaxy NVim repository."
+				return 1
+			}
+	else
+		cd "$install_dir" || return 1
+		git pull --force origin master
+	fi
+	cd "$install_dir" || return 1
+	./install_complex
+	rm -rf local_dir
+}
+
 
 pacman --noconfirm --needed -Sy libnewt || error "Are you sure you're running this as the root user, are on an Arch-based distribution and have an internet connection?"
 
@@ -214,4 +234,4 @@ install_loop
 put_git_repo "$dotfiles_repository" "/home/$name" "$repo_branch"
 rm -rf "/home/$name/.git/" "/home/$name/README.md"
 
-
+galaxy_install || "Galaxy nvim installation didn't work."
